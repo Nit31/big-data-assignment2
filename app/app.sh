@@ -9,18 +9,31 @@ bash start-services.sh
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install any packages
+# Install packages
+pip install wheel
 pip install -r requirements.txt  
 
 # Package the virtual env.
 venv-pack -o .venv.tar.gz
 
+# Pack libs to use inside jar
+mkdir -p zip_libs
+SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
+cp -r "$SITE_PACKAGES"/* zip_libs/
+cd zip_libs
+zip -r ../libs.zip .
+cd ..
+
 # Collect data
 bash prepare_data.sh
 
-
 # Run the indexer
-bash index.sh data/sample.txt
+bash index.sh /index/data
+
+# # FIXME:
+# tail -f /dev/null
 
 # Run the ranker
-bash search.sh "this is a query!"
+bash search.sh "James Dearden films"
+bash search.sh "I want to find the American comedy created in 1916"
+bash search.sh "Video game"
