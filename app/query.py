@@ -1,8 +1,9 @@
 import math
 import re
+import sys
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
+from pyspark.sql.functions import avg, col
 
 # Regular expression to capture word tokens
 token_pattern = re.compile(r"\b\w+\b")
@@ -31,12 +32,10 @@ def search_bm25(query, k1=1.2, b=0.75):
         spark.stop()
         return []
 
-    # Get corpus statistics from Cassandra
-    stats_df = spark.read.format("org.apache.spark.sql.cassandra").options(table="stats", keyspace="bigdata").load()
-
-    # Extract N and dl_avg
-    N = stats_df.filter(col("key") == "N").select("value").collect()[0][0]
-    dl_avg = stats_df.filter(col("key") == "dl_avg").select("value").collect()[0][0]
+    # Compute corpus statistics from the docs table
+    docs_all = spark.read.format("org.apache.spark.sql.cassandra").options(table="docs", keyspace="bigdata").load()
+    N = docs_all.count()
+    dl_avg = docs_all.select(avg("len")).first()[0]
 
     # Get document frequencies for query tokens
     df_data = (
@@ -91,7 +90,7 @@ def search_bm25(query, k1=1.2, b=0.75):
     tf_data_rdd = tf_data.rdd.map(lambda row: (row["document_id"], row["token"], row["frequency"]))
 
     # compute the partial BM25 score for a given term in a document
-    def partial_bm25(doc_id, token, freq):
+    def term_bm25(doc_id, token, freq):
         df_t = token_df_bc.value.get(token, 0)
         idf = math.log(1 + (N_bc.value - df_t + 0.5) / (df_t + 0.5))
         doc_len, doc_topic, _ = doc_info_bc.value[doc_id]
@@ -99,7 +98,7 @@ def search_bm25(query, k1=1.2, b=0.75):
         return idf * tf_component
 
     # Compute the partial score for each document-token tuple
-    doc_scores_rdd = tf_data_rdd.map(lambda x: (x[0], partial_bm25(x[0], x[1], x[2])))
+    doc_scores_rdd = tf_data_rdd.map(lambda x: (x[0], term_bm25(x[0], x[1], x[2])))
 
     # Sum up scores for each document by tokens
     aggregated_scores_rdd = doc_scores_rdd.reduceByKey(lambda a, b: a + b)
@@ -114,8 +113,6 @@ def search_bm25(query, k1=1.2, b=0.75):
 
 
 def main():
-    import sys
-
     if len(sys.argv) > 1:
         query = " ".join(sys.argv[1:])
     else:

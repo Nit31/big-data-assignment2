@@ -7,13 +7,11 @@ INPUT_PATH=${1:-/index/data}
 # Create necessary directories in HDFS
 hdfs dfs -mkdir -p /tmp/index
 
-# Determine if input is local or in HDFS
+# Input is already in HDFS
 if [[ $INPUT_PATH == /* ]] || [[ $INPUT_PATH == hdfs://* ]]; then
-    # Input is already in HDFS
     HDFS_INPUT=$INPUT_PATH
+# Input is local, copy to HDFS
 else
-    # Input is local, copy to HDFS
-    echo "Copying local file/folder to HDFS..."
     hdfs dfs -mkdir -p /tmp/input
     hdfs dfs -put -f $INPUT_PATH /tmp/input/
     HDFS_INPUT="/tmp/input/$(basename $INPUT_PATH)"
@@ -24,7 +22,7 @@ echo "Setting up Cassandra schema..."
 python3 app.py
 
 ############################
-# Run Term Frequency MapReduce Job
+# Run MapReduce1 Job
 echo "Running Term Frequency MapReduce..."
 
 mapred streaming \
@@ -48,17 +46,6 @@ mapred streaming \
     -reducer "python3 reducer2.py" \
     -input $HDFS_INPUT \
     -output /tmp/index/output_df
-# ############################
-# # Run Stats Aggregation MapReduce Job
-echo "Running Stats Aggregation MapReduce..."
-
-mapred streaming \
-    -D mapred.reduce.tasks=10 \
-    -files "$(pwd)/mapreduce/mapper3.py,$(pwd)/mapreduce/reducer3.py,$(pwd)/libs.zip" \
-    -mapper "python3 mapper3.py" \
-    -reducer "python3 reducer3.py" \
-    -input $HDFS_INPUT \
-    -output /tmp/index/output_stats
 
 # ############################
 

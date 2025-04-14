@@ -1,5 +1,4 @@
 import sys
-import zipimport
 
 sys.path.insert(0, "libs.zip")
 from cassandra.cluster import Cluster

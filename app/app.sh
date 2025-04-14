@@ -30,9 +30,6 @@ bash prepare_data.sh
 # Run the indexer
 bash index.sh /index/data
 
-# # FIXME:
-# tail -f /dev/null
-
 # Run the ranker
 bash search.sh "James Dearden films"
 bash search.sh "I want to find the American comedy created in 1916"

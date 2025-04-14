@@ -18,15 +18,6 @@ def create_keyspace_and_tables(session):
     # Create tables
     session.execute(
         """
-        CREATE TABLE IF NOT EXISTS stats (
-            key text PRIMARY KEY,
-            value double
-        );
-        """
-    )
-
-    session.execute(
-        """
         CREATE TABLE IF NOT EXISTS df (
             "token" text PRIMARY KEY,
             n_docs int
